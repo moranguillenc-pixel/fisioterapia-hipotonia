@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🩺 Vista Terapeuta · FisioAngulo IA</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070312; --surface:rgba(255,255,255,.04); --border:rgba(255,255,255,.09);
+  --text:rgba(255,255,255,.87); --muted:rgba(255,255,255,.38);
+  --acc:#00e5a0; --dora:#ffd700; --azul:#4fc3f7; --rojo:#ff6b6b; --nara:#ffb74d;
+  --ok:rgba(0,229,160,.15); --ok-b:rgba(0,229,160,.5);
+  --wa:rgba(255,215,0,.12);  --wa-b:rgba(255,215,0,.45);
+  --lo:rgba(255,107,107,.12);--lo-b:rgba(255,107,107,.45);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  font-family:'Nunito',sans-serif;
+  background:var(--bg);
+  min-height:100vh;color:var(--text);
+  display:flex;flex-direction:column;
+}
+
+/* ── TOPBAR ── */
+#topbar{
+  background:rgba(255,255,255,.03);
+  border-bottom:1px solid var(--border);
+  padding:12px 24px;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+}
+#tit{font-family:'Fredoka One',cursive;font-size:20px;color:var(--dora);}
+#estado-pill{
+  display:flex;align-items:center;gap:7px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;
+}
+#est-dot{width:8px;height:8px;border-radius:50%;background:#555;flex-shrink:0;transition:background .3s;}
+#est-dot.on{background:#00e5a0;animation:pulse 1.5s infinite;}
+#est-dot.off{background:#f44;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(0,229,160,.4)}70%{box-shadow:0 0 0 6px rgba(0,229,160,0)}}
+#paciente-chip{
+  background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.25);
+  border-radius:10px;padding:5px 14px;font-size:12px;font-weight:800;color:var(--dora);
+}
+#hora-chip{margin-left:auto;color:var(--muted);font-size:11px;font-family:'Fredoka One',cursive;}
+#btn-reset{
+  padding:5px 14px;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface);color:var(--muted);font-size:11px;font-weight:700;
+  cursor:pointer;font-family:'Nunito',sans-serif;transition:all .2s;
+}
+#btn-reset:hover{color:#fff;border-color:rgba(255,255,255,.3);}
+
+/* ── GRID PRINCIPAL ── */
+#main{
+  flex:1;display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  grid-template-rows:auto auto 1fr;
+  gap:12px;padding:16px;
+  max-width:1400px;width:100%;margin:0 auto;
+}
+
+/* ── TARJETAS BASE ── */
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:16px;padding:16px;transition:border-color .3s;
+}
+.card.ok  {border-color:var(--ok-b)!important;background:var(--ok);}
+.card.warn{border-color:var(--wa-b)!important;background:var(--wa);}
+.card.low {border-color:var(--lo-b)!important;background:var(--lo);}
+.card-title{
+  font-size:10px;font-weight:800;color:var(--muted);
+  text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;
+  display:flex;align-items:center;gap:6px;
+}
+
+/* ── MÉTRICAS GRANDES (fila 1) ── */
+.metric-big{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:4px;padding:10px;
+}
+.metric-big .val{
+  font-family:'Fredoka One',cursive;
+  font-size:clamp(36px,5vw,64px);
+  line-height:1;
+  color:var(--acc);
+  transition:color .3s;
+  text-shadow:0 0 30px rgba(0,229,160,.3);
+}
+.metric-big .val.ok  {color:var(--acc);}
+.metric-big .val.warn{color:var(--dora);text-shadow:0 0 30px rgba(255,215,0,.3);}
+.metric-big .val.low {color:var(--rojo);text-shadow:0 0 30px rgba(255,107,107,.3);}
+.metric-big .lbl{font-size:11px;font-weight:700;color:var(--muted);}
+.metric-big .sublbl{font-size:9px;color:var(--muted);margin-top:2px;}
+
+/* ── BARRA ANGULAR ── */
+.ang-barra{margin-top:8px;}
+.ang-bg{background:rgba(0,0,0,.4);border-radius:6px;height:8px;overflow:hidden;}
+.ang-fill{height:8px;border-radius:6px;transition:width .25s ease,background .3s;}
+.ang-umbral{
+  font-size:9px;color:var(--muted);margin-top:4px;
+  display:flex;justify-content:space-between;
+}
+
+/* ── SCORE / SESIÓN (top center) ── */
+#card-sesion{grid-column:1/4;}
+.sesion-row{display:flex;gap:10px;flex-wrap:wrap;}
+.sesion-item{
+  flex:1;min-width:80px;
+  background:rgba(0,0,0,.3);border:1px solid var(--border);
+  border-radius:12px;padding:10px 14px;text-align:center;
+}
+.sesion-item .sv{font-family:'Fredoka One',cursive;font-size:24px;color:var(--dora);}
+.sesion-item .sl{font-size:10px;color:var(--muted);margin-top:2px;}
+
+/* ── COORDINACIÓN (grande) ── */
+#card-coord{grid-column:3/4;grid-row:2/4;display:flex;flex-direction:column;}
+.coord-ring{
+  flex:1;display:flex;align-items:center;justify-content:center;position:relative;
+  margin:10px 0;
+}
+#ring-svg{width:160px;height:160px;}
+#ring-bg{fill:none;stroke:rgba(255,255,255,.06);stroke-width:14;}
+#ring-fill{fill:none;stroke:var(--acc);stroke-width:14;stroke-linecap:round;
+  stroke-dasharray:440;stroke-dashoffset:440;transform:rotate(-90deg);transform-origin:50% 50%;
+  transition:stroke-dashoffset .4s ease,stroke .3s;}
+.ring-val{
+  position:absolute;font-family:'Fredoka One',cursive;
+  font-size:32px;color:var(--acc);text-align:center;
+  transition:color .3s;
+}
+.ring-lbl{font-size:10px;color:var(--muted);text-align:center;margin-top:4px;}
+.asimetria-row{
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:10px;
+  padding:8px 12px;font-size:11px;margin-top:8px;
+}
+.asim-val{font-family:'Fredoka One',cursive;font-size:18px;}
+.asim-ok {color:var(--acc);}
+.asim-mal{color:var(--rojo);}
+
+/* ── HISTORIAL (tabla) ── */
+#card-historial{grid-column:1/3;}
+.hist-tabla{width:100%;border-collapse:collapse;font-size:11px;}
+.hist-tabla th{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.5px;padding:5px 8px;text-align:left;border-bottom:1px solid var(--border);}
+.hist-tabla td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--text);transition:background .2s;}
+.hist-tabla tr.nueva td{background:rgba(0,229,160,.06);}
+.hist-tabla tr:last-child td{border-bottom:none;}
+.tag{border-radius:4px;padding:2px 6px;font-size:9px;font-weight:800;}
+.tag.ok  {color:var(--acc);background:rgba(0,229,160,.12);}
+.tag.wa  {color:var(--dora);background:rgba(255,215,0,.12);}
+.tag.lo  {color:var(--rojo);background:rgba(255,107,107,.12);}
+
+/* ── GRÁFICA TEMPORAL (simplificada con canvas) ── */
+#card-grafica{grid-column:1/3;}
+#grafica-canvas{width:100%;height:100px;display:block;}
+
+/* ── EJERCICIO ACTUAL (banner) ── */
+#card-ejercicio{
+  grid-column:3/4;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;gap:8px;
+  border:1px solid var(--ok-b);background:var(--ok);
+}
+#ej-emoji{font-size:40px;line-height:1;}
+#ej-txt{font-family:'Fredoka One',cursive;font-size:16px;color:var(--acc);}
+#ej-sub{font-size:11px;color:var(--muted);line-height:1.5;}
+.ej-umbral{font-size:10px;color:var(--muted);margin-top:4px;background:rgba(0,0,0,.3);border-radius:8px;padding:4px 10px;}
+
+/* ── ALERTAS ── */
+#alertas{
+  position:fixed;top:16px;right:16px;z-index:100;
+  display:flex;flex-direction:column;gap:8px;max-width:300px;
+}
+.alerta{
+  background:#1a0a2a;border:1px solid var(--lo-b);border-radius:12px;
+  padding:10px 14px;font-size:11px;font-weight:700;color:#fff;
+  animation:slideIn .3s ease,fadeOut .4s ease 3.6s forwards;
+  box-shadow:0 4px 20px rgba(0,0,0,.5);
+}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes fadeOut{from{opacity:1}to{opacity:0;pointer-events:none}}
+
+/* ── GRÁFICA mini ── */
+.graf-wrap{position:relative;}
+.graf-labels{display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-top:4px;}
+
+/* ── SIN CONEXIÓN ── */
+#sin-conexion{
+  position:fixed;inset:0;background:rgba(7,3,18,.97);z-index:200;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;
+}
+#sin-conexion.oculto{display:none;}
+.sc-icon{font-size:64px;}
+.sc-tit{font-family:'Fredoka One',cursive;font-size:28px;color:var(--dora);}
+.sc-sub{color:var(--muted);font-size:13px;text-align:center;line-height:1.7;max-width:440px;}
+.sc-pasos{display:flex;flex-direction:column;gap:8px;max-width:440px;width:100%;}
+.sc-paso{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:10px;}
+.sc-paso b{color:var(--text);}
+.sc-paso .n{font-family:'Fredoka One',cursive;font-size:16px;color:var(--acc);flex-shrink:0;}
+#btn-revisar{padding:10px 28px;border:none;border-radius:12px;background:linear-gradient(135deg,#00e5a0,#00b4d8);color:#000;font-size:13px;font-weight:800;font-family:'Nunito',sans-serif;cursor:pointer;transition:all .2s;}
+#btn-revisar:hover{transform:scale(1.03);}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  #main{grid-template-columns:1fr 1fr;grid-template-rows:auto;}
+  #card-sesion{grid-column:1/3;}
+  #card-coord{grid-column:1/3;grid-row:auto;}
+  #card-historial{grid-column:1/3;}
+  #card-grafica{grid-column:1/3;}
+  #card-ejercicio{grid-column:1/3;}
+}
+</style>
+</head>
+<body>
+
+<!-- Sin conexión -->
+<div id="sin-conexion">
+  <div class="sc-icon">🩺</div>
+  <div class="sc-tit">Vista del Fisioterapeuta</div>
+  <p class="sc-sub">Esta pantalla muestra en tiempo real los ángulos articulares del paciente mientras juega. Ábrela en un monitor secundario.</p>
+  <div class="sc-pasos">
+    <div class="sc-paso"><span class="n">1</span><span><b>Abre el juego</b> en otra pestaña o ventana (<code>cazador_estrellas_final.html</code>)</span></div>
+    <div class="sc-paso"><span class="n">2</span><span><b>Completa la calibración</b> del paciente en el juego</span></div>
+    <div class="sc-paso"><span class="n">3</span><span><b>Activa la cámara IA</b> en el juego — los datos aparecerán aquí automáticamente</span></div>
+  </div>
+  <button id="btn-revisar" onclick="revisarStorage()">🔄 Ya está corriendo — verificar conexión</button>
+  <p style="font-size:10px;color:var(--muted);text-align:center;">También se conecta automáticamente cuando el juego empieza a emitir datos</p>
+</div>
+
+<!-- Topbar -->
+<div id="topbar">
+  <div id="tit">🩺 Vista del Fisioterapeuta</div>
+  <div id="estado-pill"><div id="est-dot" class="off"></div><span id="est-txt">Sin señal</span></div>
+  <div id="paciente-chip">👤 —</div>
+  <div id="hora-chip" id="hora">--:--:--</div>
+  <button id="btn-reset" onclick="limpiarDatos()">↺ Limpiar sesión</button>
+</div>
+
+<!-- Alertas -->
+<div id="alertas"></div>
+
+<!-- Grid principal -->
+<div id="main">
+
+  <!-- Fila 1: Resumen sesión -->
+  <div class="card" id="card-sesion">
+    <div class="card-title">📊 Resumen de Sesión</div>
+    <div class="sesion-row">
+      <div class="sesion-item"><div class="sv" id="s-score">0</div><div class="sl">Puntaje</div></div>
+      <div class="sesion-item"><div class="sv" id="s-ej">0/8</div><div class="sl">Ejercicios</div></div>
+      <div class="sesion-item"><div class="sv" id="s-reps">0</div><div class="sl">Repeticiones</div></div>
+      <div class="sesion-item"><div class="sv" id="s-tiempo">0:00</div><div class="sl">Duración</div></div>
+      <div class="sesion-item"><div class="sv" id="s-combo">0x</div><div class="sl">Combo</div></div>
+      <div class="sesion-item"><div class="sv" id="s-calib" style="font-size:16px">—</div><div class="sl">Calibrado</div></div>
+    </div>
+  </div>
+
+  <!-- Fila 2: Rodilla Izquierda -->
+  <div class="card" id="card-ri">
+    <div class="card-title">🦵 Rodilla Izquierda</div>
+    <div class="metric-big">
+      <div class="val" id="v-ri">--°</div>
+      <div class="lbl">Flexión actual</div>
+      <div class="sublbl" id="sl-ri">umbral: &gt;30°</div>
+    </div>
+    <div class="ang-barra">
+      <div class="ang-bg"><div class="ang-fill" id="bar-ri" style="width:0%"></div></div>
+      <div class="ang-umbral"><span>0°</span><span id="u-ri-lbl">umbral 30°</span><span>90°</span></div>
+    </div>
+    <div style="margin-top:8px;font-size:9px;color:var(--muted);">Máx. sesión: <b id="mx-ri" style="color:var(--acc)">0°</b></div>
+  </div>
+
+  <!-- Rodilla Derecha -->
+  <div class="card" id="card-rd">
+    <div class="card-title">🦵 Rodilla Derecha</div>
+    <div class="metric-big">
+      <div class="val" id="v-rd">--°</div>
+      <div class="lbl">Flexión actual</div>
+      <div class="sublbl" id="sl-rd">umbral: &gt;30°</div>
+    </div>
+    <div class="ang-barra">
+      <div class="ang-bg"><div class="ang-fill" id="bar-rd" style="width:0%"></div></div>
+      <div class="ang-umbral"><span>0°</span><span id="u-rd-lbl">umbral 30°</span><span>90°</span></div>
+    </div>
+    <div style="margin-top:8px;font-size:9px;color:var(--muted);">Máx. sesión: <b id="mx-rd" style="color:var(--acc)">0°</b></div>
+  </div>
+
+  <!-- Coordinación (ocupa 2 filas) -->
+  <div class="card" id="card-coord">
+    <div class="card-title">✦ Coordinación Bilateral</div>
+    <div class="coord-ring">
+      <svg id="ring-svg" viewBox="0 0 160 160">
+        <circle id="ring-bg" cx="80" cy="80" r="70"/>
+        <circle id="ring-fill" cx="80" cy="80" r="70"/>
+      </svg>
+      <div class="ring-val" id="ring-txt">--%</div>
+    </div>
+    <div class="ring-lbl" id="ring-lbl">simetría entre piernas</div>
+    <div class="asimetria-row">
+      <span style="font-size:10px;color:var(--muted);">Asimetría</span>
+      <span class="asim-val asim-ok" id="asim-val">--°</span>
+    </div>
+    <div class="asimetria-row" style="margin-top:6px;">
+      <span style="font-size:10px;color:var(--muted);">Reps. detectadas</span>
+      <span style="font-family:'Fredoka One',cursive;font-size:18px;color:var(--dora)" id="reps-val">0</span>
+    </div>
+    <!-- Mini avatar SVG de estado -->
+    <svg viewBox="0 0 90 80" style="width:100%;margin-top:10px;opacity:.6;" xmlns="http://www.w3.org/2000/svg">
+      <defs><filter id="gw2"><feGaussianBlur stdDeviation="1.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+      <circle cx="45" cy="10" r="7" fill="none" stroke="#00e5a0" stroke-width="2" filter="url(#gw2)"/>
+      <line x1="45" y1="17" x2="45" y2="42" stroke="#00e5a0" stroke-width="2" filter="url(#gw2)"/>
+      <line x1="45" y1="26" x2="30" y2="36" stroke="#00e5a0" stroke-width="1.5" filter="url(#gw2)"/>
+      <line x1="45" y1="26" x2="60" y2="36" stroke="#00e5a0" stroke-width="1.5" filter="url(#gw2)"/>
+      <line x1="32" y1="42" x2="58" y2="42" stroke="#00e5a0" stroke-width="1.5" filter="url(#gw2)"/>
+      <line id="ta-mi" x1="32" y1="42" x2="32" y2="64" stroke="#4fc3f7" stroke-width="2" filter="url(#gw2)"/>
+      <line id="ta-ti" x1="32" y1="64" x2="32" y2="78" stroke="#4fc3f7" stroke-width="2" filter="url(#gw2)"/>
+      <line id="ta-md" x1="58" y1="42" x2="58" y2="64" stroke="#ffd700" stroke-width="2" filter="url(#gw2)"/>
+      <line id="ta-td" x1="58" y1="64" x2="58" y2="78" stroke="#ffd700" stroke-width="2" filter="url(#gw2)"/>
+      <circle id="ta-ri" cx="32" cy="64" r="3" fill="#4fc3f7" filter="url(#gw2)"/>
+      <circle id="ta-rd" cx="58" cy="64" r="3" fill="#ffd700" filter="url(#gw2)"/>
+    </svg>
+  </div>
+
+  <!-- Cadera Izquierda -->
+  <div class="card" id="card-ci">
+    <div class="card-title">↔ Cadera Izquierda</div>
+    <div class="metric-big">
+      <div class="val" id="v-ci">--°</div>
+      <div class="lbl">Flexión actual</div>
+      <div class="sublbl" id="sl-ci">umbral: &gt;15°</div>
+    </div>
+    <div class="ang-barra">
+      <div class="ang-bg"><div class="ang-fill" id="bar-ci" style="width:0%;background:linear-gradient(90deg,#c47d00,#fff176)"></div></div>
+      <div class="ang-umbral"><span>0°</span><span id="u-ci-lbl">umbral 15°</span><span>60°</span></div>
+    </div>
+    <div style="margin-top:8px;font-size:9px;color:var(--muted);">Máx. sesión: <b id="mx-ci" style="color:var(--dora)">0°</b></div>
+  </div>
+
+  <!-- Cadera Derecha -->
+  <div class="card" id="card-cd">
+    <div class="card-title">↔ Cadera Derecha</div>
+    <div class="metric-big">
+      <div class="val" id="v-cd">--°</div>
+      <div class="lbl">Flexión actual</div>
+      <div class="sublbl" id="sl-cd">umbral: &gt;15°</div>
+    </div>
+    <div class="ang-barra">
+      <div class="ang-bg"><div class="ang-fill" id="bar-cd" style="width:0%;background:linear-gradient(90deg,#c47d00,#fff176)"></div></div>
+      <div class="ang-umbral"><span>0°</span><span id="u-cd-lbl">umbral 15°</span><span>60°</span></div>
+    </div>
+    <div style="margin-top:8px;font-size:9px;color:var(--muted);">Máx. sesión: <b id="mx-cd" style="color:var(--dora)">0°</b></div>
+  </div>
+
+  <!-- Ejercicio actual -->
+  <div class="card" id="card-ejercicio">
+    <div class="card-title">🎮 Ejercicio Actual</div>
+    <div id="ej-emoji">⏳</div>
+    <div id="ej-txt">Esperando al paciente...</div>
+    <div id="ej-sub">La vista se actualiza en tiempo real<br>mientras el paciente juega</div>
+    <div class="ej-umbral" id="ej-umbral"></div>
+  </div>
+
+  <!-- Historial -->
+  <div class="card" id="card-historial">
+    <div class="card-title">📋 Historial de Ejercicios (últimos 5)</div>
+    <table class="hist-tabla">
+      <thead><tr><th>#</th><th>Ejercicio</th><th>Hora</th><th>Rod.Izq</th><th>Cad.Izq</th><th>Coord.</th><th>Estado</th></tr></thead>
+      <tbody id="hist-body"><tr><td colspan="7" style="color:var(--muted);text-align:center;padding:16px;">Sin datos aún — esperando al paciente...</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- Gráfica temporal -->
+  <div class="card" id="card-grafica">
+    <div class="card-title">📈 Progresión Angular (últimas capturas)</div>
+    <div class="graf-wrap">
+      <canvas id="grafica-canvas" height="100"></canvas>
+      <div class="graf-labels"><span style="color:#4fc3f7">— Rod. Izq</span><span style="color:#ffd700">— Cadera</span><span style="color:#d4b4ff">— Coordinación</span></div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+'use strict';
+/* ══════════════════════════════════
+   ESTADO
+══════════════════════════════════ */
+var conectado = false;
+var canal = null;
+var datos = null;
+var maximos = {rodillaIzq:0,rodillaDer:0,caderaIzq:0,caderaDer:0,coord:0};
+var historiaGrafica = []; // últimas 20 lecturas para gráfica
+
+var NOMS = {
+  azul:'🔵 Rodilla Izquierda',
+  verde:'🟢 Cadera Izquierda',
+  amarilla:'🟡 Cadera Derecha',
+  naranja:'🟠 Coordinación Bilateral',
+  dorada:'⭐ Movimiento Completo'
+};
+var EJ_DESC = {
+  azul:  {emoji:'🔵', txt:'Dobla la rodilla izquierda', sub:'Flexión de rodilla · hipotonía flexora'},
+  verde: {emoji:'🟢', txt:'Levanta la rodilla izquierda', sub:'Flexión de cadera · control de core'},
+  amarilla:{emoji:'🟡', txt:'Levanta la rodilla derecha', sub:'Flexión de cadera derecha'},
+  naranja:{emoji:'🟠', txt:'Coordinar ambas piernas', sub:'Ejercicio bilateral · simetría'},
+  dorada:{emoji:'⭐', txt:'¡Movimiento completo!', sub:'Combinación rodilla + cadera + coordinación'}
+};
+
+/* ══════════════════════════════════
+   CANAL BROADCAST
+══════════════════════════════════ */
+function iniciarCanal(){
+  if('BroadcastChannel' in window){
+    canal = new BroadcastChannel('fisio-terapeuta');
+    canal.onmessage = function(e){ recibirDatos(e.data); };
+  }
+}
+
+function recibirDatos(d){
+  if(d.tipo==='estado'||d.tipo==='live'||d.tipo==='angulos-live'){
+    datos = d; conectar();
+    actualizarTodo(d);
+  }
+}
+
+function conectar(){
+  if(!conectado){
+    conectado=true;
+    document.getElementById('sin-conexion').classList.add('oculto');
+    document.getElementById('est-dot').className='on';
+    document.getElementById('est-txt').textContent='En vivo';
+  }
+}
+
+function revisarStorage(){
+  try{
+    var raw=localStorage.getItem('fisio-estado');
+    if(raw){var d=JSON.parse(raw);datos=d;conectar();actualizarTodo(d);return;}
+  }catch(e){}
+  mostrarAlerta('⚠ No se encontró sesión activa. Asegúrate de tener el juego abierto.');
+}
+
+/* ══════════════════════════════════
+   ACTUALIZAR UI
+══════════════════════════════════ */
+function actualizarTodo(d){
+  // Paciente
+  document.getElementById('paciente-chip').textContent='👤 '+(d.paciente||'—');
+
+  // Sesión
+  document.getElementById('s-score').textContent=d.score||0;
+  document.getElementById('s-ej').textContent=(d.idx||0)+'/8';
+  document.getElementById('s-reps').textContent=d.repeticiones||0;
+  document.getElementById('s-tiempo').textContent=fmt(d.secs||0);
+  document.getElementById('s-combo').textContent=(d.combo||0)+'x';
+  document.getElementById('s-calib').textContent=d.calibrada?'✅ Sí':'⚠ No';
+
+  var ang = d.angulos||d.estado||{};
+  var u   = d.umbrales||{rodillaIzq:30,caderaIzq:15,caderaDer:15,coord:70};
+
+  // Actualizar umbrales en labels
+  document.getElementById('sl-ri').textContent='umbral calibrado: >'+u.rodillaIzq+'°';
+  document.getElementById('sl-rd').textContent='umbral calibrado: >'+u.rodillaIzq+'°';
+  document.getElementById('sl-ci').textContent='umbral calibrado: >'+u.caderaIzq+'°';
+  document.getElementById('sl-cd').textContent='umbral calibrado: >'+u.caderaDer+'°';
+  document.getElementById('u-ri-lbl').textContent='umbral '+u.rodillaIzq+'°';
+  document.getElementById('u-rd-lbl').textContent='umbral '+u.rodillaIzq+'°';
+  document.getElementById('u-ci-lbl').textContent='umbral '+u.caderaIzq+'°';
+  document.getElementById('u-cd-lbl').textContent='umbral '+u.caderaDer+'°';
+
+  // Ángulos
+  actualizarAngulo('ri',ang.rodillaIzq,90,u.rodillaIzq,'linear-gradient(90deg,#1a7dc8,#4fc3f7)');
+  actualizarAngulo('rd',ang.rodillaDer,90,u.rodillaIzq,'linear-gradient(90deg,#1a7dc8,#4fc3f7)');
+  actualizarAngulo('ci',ang.caderaIzq, 60,u.caderaIzq, 'linear-gradient(90deg,#c47d00,#fff176)');
+  actualizarAngulo('cd',ang.caderaDer, 60,u.caderaDer, 'linear-gradient(90deg,#c47d00,#fff176)');
+
+  // Máximos de sesión
+  if(d.angMax){
+    document.getElementById('mx-ri').textContent=(d.angMax.rodillaIzq||0)+'°';
+    document.getElementById('mx-rd').textContent=(d.angMax.rodillaDer||0)+'°';
+    document.getElementById('mx-ci').textContent=(d.angMax.caderaIzq||0)+'°';
+    document.getElementById('mx-cd').textContent=(d.angMax.caderaDer||0)+'°';
+  }
+
+  // Coordinación
+  actualizarCoord(ang.coord, u.coord, ang.rodillaIzq, ang.rodillaDer);
+  document.getElementById('reps-val').textContent=d.repeticiones||0;
+
+  // Ejercicio actual
+  var ej=d.ejercicioActual||null;
+  if(ej&&EJ_DESC[ej]){
+    var info=EJ_DESC[ej];
+    document.getElementById('ej-emoji').textContent=info.emoji;
+    document.getElementById('ej-txt').textContent=info.txt;
+    document.getElementById('ej-sub').textContent=info.sub;
+    var uTxt='';
+    if(ej==='azul')uTxt='Umbral: rodilla izq > '+u.rodillaIzq+'°';
+    else if(ej==='verde')uTxt='Umbral: cadera izq > '+u.caderaIzq+'°';
+    else if(ej==='amarilla')uTxt='Umbral: cadera der > '+u.caderaDer+'°';
+    else if(ej==='naranja')uTxt='Umbral: coordinación > '+u.coord+'%';
+    else if(ej==='dorada')uTxt='Umbral combinado: rod+cad+coord';
+    document.getElementById('ej-umbral').textContent=uTxt;
+    // Animar avatar mini
+    actualizarAvatarMini(ej, ang);
+  }else if(ej==='Completado'){
+    document.getElementById('ej-emoji').textContent='🏆';
+    document.getElementById('ej-txt').textContent='¡Sesión completada!';
+    document.getElementById('ej-sub').textContent='El paciente finalizó todos los ejercicios';
+  }
+
+  // Historial
+  if(d.historial&&d.historial.length>0) actualizarHistorial(d.historial);
+
+  // Gráfica
+  historiaGrafica.push({
+    rodillaIzq:ang.rodillaIzq||0,
+    caderaDer:ang.caderaDer||0,
+    coord:ang.coord||0
+  });
+  if(historiaGrafica.length>30)historiaGrafica.shift();
+  dibujarGrafica();
+
+  // Alertas clínicas
+  verificarAlertas(ang,u);
+}
+
+function actualizarAngulo(id, ang, max, umb, grad){
+  var val=document.getElementById('v-'+id);
+  var bar=document.getElementById('bar-'+id);
+  var card=document.getElementById('card-'+id);
+  if(ang===null||ang===undefined){
+    val.textContent='--°'; val.className='val'; bar.style.width='0%';
+    card.className='card'; return;
+  }
+  val.textContent=ang+'°';
+  var pct=Math.min(100,Math.round(ang/max*100));
+  bar.style.width=pct+'%';
+  // Color según umbral
+  var ok=ang>umb;
+  if(ok){
+    bar.style.background=grad.replace(/linear-gradient/,'').includes('1a7dc8')
+      ?'linear-gradient(90deg,#007a50,#00e5a0)'
+      :'linear-gradient(90deg,#7a5a00,#ffd700)';
+    val.className='val ok';card.className='card ok';
+  }else if(ang>umb*0.6){
+    bar.style.background=grad;val.className='val warn';card.className='card warn';
+  }else{
+    bar.style.background='linear-gradient(90deg,#7a1a1a,#ff6b6b)';
+    val.className='val low';card.className='card low';
+  }
+}
+
+function actualizarCoord(coord, umbral, ri, rd){
+  var txt=document.getElementById('ring-txt');
+  var fill=document.getElementById('ring-fill');
+  var lbl=document.getElementById('ring-lbl');
+  var card=document.getElementById('card-coord');
+  if(coord===null||coord===undefined){txt.textContent='--%';fill.style.strokeDashoffset='440';return;}
+  txt.textContent=coord+'%';
+  var circ=2*Math.PI*70; // radio 70 → circunferencia ≈ 440
+  var offset=circ*(1-coord/100);
+  fill.style.strokeDashoffset=offset;
+  fill.style.strokeDasharray=circ;
+  // Color del anillo
+  if(coord>umbral){fill.style.stroke='#00e5a0';txt.style.color='#00e5a0';card.className='card ok';}
+  else if(coord>umbral*0.7){fill.style.stroke='#ffd700';txt.style.color='#ffd700';card.className='card warn';}
+  else{fill.style.stroke='#ff6b6b';txt.style.color='#ff6b6b';card.className='card low';}
+  // Asimetría
+  var asim=document.getElementById('asim-val');
+  if(ri!==null&&ri!==undefined&&rd!==null&&rd!==undefined){
+    var diff=Math.abs(ri-rd);
+    asim.textContent=diff+'°';
+    asim.className='asim-val '+(diff<10?'asim-ok':'asim-mal');
+  }else asim.textContent='--°';
+  lbl.textContent=coord>umbral?'✅ Coordinación aceptable':'⚠ Asimetría detectada';
+}
+
+function actualizarAvatarMini(tipo, ang){
+  // Animar el avatar mini en la tarjeta de coordinación
+  var mi=document.getElementById('ta-mi'),ti=document.getElementById('ta-ti');
+  var md=document.getElementById('ta-md'),td=document.getElementById('ta-td');
+  var ri=document.getElementById('ta-ri'),rd=document.getElementById('ta-rd');
+  var poses={
+    azul:    [22,64,22,78,  58,64,58,78],
+    verde:   [22,58,25,76,  58,64,58,78],
+    amarilla:[32,64,32,78,  68,58,72,76],
+    naranja: [22,58,22,76,  68,58,72,76],
+    dorada:  [20,56,18,74,  70,56,74,74]
+  };
+  var p=poses[tipo]||poses.azul;
+  mi.setAttribute('x2',p[0]);mi.setAttribute('y2',p[1]);
+  ti.setAttribute('x1',p[0]);ti.setAttribute('y1',p[1]);ti.setAttribute('x2',p[2]);ti.setAttribute('y2',p[3]);
+  ri.setAttribute('cx',p[0]);ri.setAttribute('cy',p[1]);
+  md.setAttribute('x2',p[4]);md.setAttribute('y2',p[5]);
+  td.setAttribute('x1',p[4]);td.setAttribute('y1',p[5]);td.setAttribute('x2',p[6]);td.setAttribute('y2',p[7]);
+  rd.setAttribute('cx',p[4]);rd.setAttribute('cy',p[5]);
+}
+
+function actualizarHistorial(hist){
+  var tbody=document.getElementById('hist-body');
+  tbody.innerHTML=hist.map(function(r,i){
+    var estado=evalEstado(r.angulos||{});
+    var isNew=(i===hist.length-1);
+    return '<tr class="'+(isNew?'nueva':'')+'"><td>'+r.nro+'</td><td>'+(NOMS[r.tipo]||r.tipo)+'</td><td>'+(r.ts||'--')+'</td><td>'+((r.angulos&&r.angulos.rodillaIzq!==null)?r.angulos.rodillaIzq+'°':'--')+'</td><td>'+((r.angulos&&r.angulos.caderaIzq!==null)?r.angulos.caderaIzq+'°':'--')+'</td><td>'+((r.angulos&&r.angulos.coord!==null)?r.angulos.coord+'%':'--')+'</td><td><span class="tag '+estado.cls+'">'+estado.txt+'</span></td></tr>';
+  }).join('');
+}
+
+function evalEstado(ang){
+  var ok=(ang.rodillaIzq!==null&&ang.rodillaIzq>25)||(ang.caderaIzq!==null&&ang.caderaIzq>12)||(ang.caderaDer!==null&&ang.caderaDer>12);
+  if(ok&&ang.coord!==null&&ang.coord>60)return{cls:'ok',txt:'Óptimo'};
+  if(ok)return{cls:'wa',txt:'Aceptable'};
+  return{cls:'lo',txt:'Bajo rango'};
+}
+
+/* ══════════════════════════════════
+   GRÁFICA
+══════════════════════════════════ */
+function dibujarGrafica(){
+  var cnv=document.getElementById('grafica-canvas');
+  var ctx=cnv.getContext('2d');
+  cnv.width=cnv.offsetWidth;
+  var W=cnv.width,H=100;
+  ctx.clearRect(0,0,W,H);
+  if(historiaGrafica.length<2)return;
+  // Fondo grid
+  ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=1;
+  for(var gy=0;gy<H;gy+=25){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
+  var series=[
+    {key:'rodillaIzq',max:90,color:'#4fc3f7'},
+    {key:'caderaDer', max:60,color:'#ffd700'},
+    {key:'coord',     max:100,color:'#d4b4ff'}
+  ];
+  series.forEach(function(s){
+    var data=historiaGrafica.map(function(p){return p[s.key]||0;});
+    ctx.strokeStyle=s.color;ctx.lineWidth=2;ctx.lineJoin='round';
+    ctx.shadowColor=s.color;ctx.shadowBlur=4;
+    ctx.beginPath();
+    data.forEach(function(v,i){
+      var x=(i/(data.length-1))*W;
+      var y=H-(v/s.max)*H*.9-4;
+      if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+    });
+    ctx.stroke();ctx.shadowBlur=0;
+  });
+}
+
+/* ══════════════════════════════════
+   ALERTAS CLÍNICAS
+══════════════════════════════════ */
+var alertasCooldown={};
+function verificarAlertas(ang, u){
+  if(ang.rodillaIzq!==null&&ang.rodillaIzq<u.rodillaIzq*0.3&&ang.rodillaIzq>0) alerta('asim','⚠ Rodilla izquierda por debajo del 30% del umbral ('+ang.rodillaIzq+'°)');
+  if(ang.rodillaIzq!==null&&ang.rodillaDer!==null&&Math.abs(ang.rodillaIzq-ang.rodillaDer)>20) alerta('asimb','⚠ Asimetría bilateral elevada ('+(Math.abs(ang.rodillaIzq-ang.rodillaDer))+'° de diferencia entre rodillas)');
+  if(ang.coord!==null&&ang.coord<30) alerta('coord','⚠ Coordinación muy baja ('+ang.coord+'%) — posible compensación postural');
+}
+var alertaTimer={};
+function alerta(key, msg){
+  var ahora=Date.now();
+  if(alertaTimer[key]&&ahora-alertaTimer[key]<15000)return;
+  alertaTimer[key]=ahora;
+  mostrarAlerta(msg);
+}
+function mostrarAlerta(msg){
+  var div=document.getElementById('alertas');
+  var a=document.createElement('div');
+  a.className='alerta';a.textContent=msg;
+  div.appendChild(a);
+  setTimeout(function(){a.remove();},4000);
+}
+
+/* ══════════════════════════════════
+   RELOJ
+══════════════════════════════════ */
+function fmt(s){var m=Math.floor(s/60),x=s%60;return m+':'+(x<10?'0':'')+x;}
+function reloj(){document.getElementById('hora-chip').textContent=new Date().toLocaleTimeString('es-PE');}
+setInterval(reloj,1000);reloj();
+
+/* ══════════════════════════════════
+   DESCONEXIÓN AUTOMÁTICA
+══════════════════════════════════ */
+var ultimaRecepcion=0;
+setInterval(function(){
+  if(!conectado)return;
+  if(Date.now()-ultimaRecepcion>8000){
+    document.getElementById('est-dot').className='off';
+    document.getElementById('est-txt').textContent='Sin señal reciente';
+  }
+},3000);
+
+function recibirDatosConTimestamp(d){
+  ultimaRecepcion=Date.now();
+  recibirDatos(d);
+}
+
+function limpiarDatos(){
+  historiaGrafica=[];
+  document.getElementById('hist-body').innerHTML='<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:16px;">Datos limpiados</td></tr>';
+  ['ri','rd','ci','cd'].forEach(function(id){
+    document.getElementById('v-'+id).textContent='--°';
+    document.getElementById('bar-'+id).style.width='0%';
+    document.getElementById('card-'+id).className='card';
+  });
+  document.getElementById('ring-txt').textContent='--%';
+  document.getElementById('ring-fill').style.strokeDashoffset='440';
+  mostrarAlerta('ℹ Datos de pantalla limpiados (la sesión en el juego continúa)');
+}
+
+function limpiarDatos(){
+  historiaGrafica=[];
+  dibujarGrafica();
+  document.getElementById('hist-body').innerHTML='<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:16px;">Datos limpiados</td></tr>';
+  mostrarAlerta('ℹ Pantalla limpiada');
+}
+
+/* ══════════════════════════════════
+   INIT
+══════════════════════════════════ */
+window.onload = function(){
+  iniciarCanal();
+  // Intentar cargar datos existentes de localStorage
+  setTimeout(function(){
+    try{
+      var raw=localStorage.getItem('fisio-estado');
+      if(raw){var d=JSON.parse(raw);conectar();actualizarTodo(d);}
+    }catch(e){}
+  }, 500);
+  // Override canal para timestamp
+  if(canal) canal.onmessage=function(e){ultimaRecepcion=Date.now();recibirDatos(e.data);};
+};
+
+window.revisarStorage=revisarStorage;
+window.limpiarDatos=limpiarDatos;
+</script>
+</body>
+</html>

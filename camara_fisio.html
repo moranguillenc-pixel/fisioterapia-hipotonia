@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FisioAngulo · Cámara IA</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<style>
+:root{
+  --acc:#00e5a0; --azul:#4fc3f7; --amar:#ffd700;
+  --bg:#0a0520; --surface:rgba(255,255,255,.05); --border:rgba(255,255,255,.1);
+  --text:rgba(255,255,255,.85); --muted:rgba(255,255,255,.35);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  font-family:'Nunito',sans-serif;
+  background:radial-gradient(ellipse at 50% 0%,#1a0a4a,#0a0520 70%);
+  min-height:100vh; color:var(--text); display:flex; flex-direction:column;
+  align-items:center; padding:16px; gap:12px;
+}
+
+/* ── Header ── */
+header{
+  width:100%; max-width:480px; display:flex; align-items:center;
+  gap:10px; flex-wrap:wrap;
+}
+.logo{
+  font-family:'Fredoka One',cursive; font-size:18px; color:var(--amar);
+  text-shadow:0 0 20px rgba(255,215,0,.4); flex:1;
+}
+#estado-dot{
+  width:9px; height:9px; border-radius:50%; background:#f44;
+  transition:background .3s; flex-shrink:0;
+}
+#estado-dot.on{ background:#4f4; animation:blink 1.5s infinite; }
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+#estado-txt{ font-size:11px; color:var(--muted); }
+
+/* ── Cámara ── */
+.cam-container{
+  width:100%; max-width:480px; position:relative;
+  border-radius:18px; overflow:hidden;
+  border:2px solid var(--border);
+  box-shadow:0 0 40px rgba(0,229,160,.1);
+  background:#000; aspect-ratio:4/3;
+}
+#video{
+  width:100%; height:100%; object-fit:cover; display:block;
+  transform:scaleX(-1);
+}
+#canvas{
+  position:absolute; top:0; left:0; width:100%; height:100%;
+  /* NO CSS mirror — mirrored manually in JS so keypoints align */
+}
+
+/* Overlay de ángulos en el video */
+.angulo-overlay{
+  position:absolute; border-radius:8px; padding:4px 8px;
+  font-family:'Fredoka One',cursive; font-size:13px;
+  background:rgba(0,0,0,.7); border:1px solid rgba(255,255,255,.15);
+  pointer-events:none; transition:all .2s; white-space:nowrap;
+}
+.angulo-overlay.activo{ border-color:rgba(0,229,160,.5); color:var(--acc); }
+
+#ov-rod-izq{ top:8px;  left:8px;  color:var(--azul); }
+#ov-rod-der{ top:8px;  right:8px; color:var(--azul); }
+#ov-cad-izq{ bottom:8px; left:8px;  color:var(--amar); }
+#ov-cad-der{ bottom:8px; right:8px; color:var(--amar); }
+#ov-coord  { top:8px;  left:50%; transform:translateX(-50%); color:var(--acc); }
+
+/* ── Botón ── */
+#btnActivar{
+  width:100%; max-width:480px; padding:12px; border:none; border-radius:12px;
+  background:linear-gradient(135deg,#00e5a0,#00b4d8);
+  color:#000; font-family:'Nunito',sans-serif; font-size:14px; font-weight:900;
+  cursor:pointer; transition:all .2s; letter-spacing:.3px;
+}
+#btnActivar:hover   { transform:scale(1.02); box-shadow:0 0 20px rgba(0,229,160,.3); }
+#btnActivar:disabled{ opacity:.5; cursor:not-allowed; transform:none; }
+
+/* ── Tarjetas de ángulos ── */
+.cards-grid{
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:8px; width:100%; max-width:480px;
+}
+
+.angle-card{
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:14px; padding:12px 14px;
+  display:flex; flex-direction:column; gap:6px;
+  transition:all .25s;
+}
+.angle-card.activo{
+  border-color:rgba(0,229,160,.4); background:rgba(0,229,160,.06);
+  box-shadow:0 0 15px rgba(0,229,160,.1);
+}
+.angle-card.warning{ border-color:rgba(255,180,50,.35); background:rgba(255,180,50,.06); }
+
+.card-icon   { font-size:18px; }
+.card-nombre { font-size:10px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+.card-valor  {
+  font-family:'Fredoka One',cursive; font-size:26px; color:var(--text); line-height:1;
+  transition:color .2s;
+}
+.angle-card.activo .card-valor { color:var(--acc); }
+
+.card-bar-bg{ background:rgba(0,0,0,.4); border-radius:4px; height:5px; }
+.card-bar   { height:5px; border-radius:4px; width:0%; transition:width .2s, background .3s; }
+.bar-azul   { background:linear-gradient(90deg,#1a7dc8,#4fc3f7); }
+.bar-amar   { background:linear-gradient(90deg,#c47d00,#fff176); }
+.bar-verde  { background:linear-gradient(90deg,#007a4a,#69f0ae); }
+.bar-rosa   { background:linear-gradient(90deg,#7b2fff,#d4b4ff); }
+
+.card-sub  { font-size:9px; color:var(--muted); }
+.card-estado{ font-size:10px; font-weight:700; color:var(--muted); }
+.angle-card.activo .card-estado { color:var(--acc); }
+
+/* ── Coordinación y Reps (fila extra) ── */
+.extra-row{
+  display:flex; gap:8px; width:100%; max-width:480px;
+}
+.extra-card{
+  flex:1; background:var(--surface); border:1px solid var(--border);
+  border-radius:14px; padding:10px 12px;
+  display:flex; align-items:center; justify-content:space-between;
+  transition:all .25s;
+}
+.extra-card.activo{ border-color:rgba(0,229,160,.4); background:rgba(0,229,160,.06); }
+.extra-card .label{ font-size:11px; color:var(--muted); font-weight:700; }
+.extra-card .valor{ font-family:'Fredoka One',cursive; font-size:22px; color:var(--amar); }
+.extra-card.activo .valor { color:var(--acc); }
+
+/* ── Ejercicio actual ── */
+#ejercicio-actual{
+  width:100%; max-width:480px;
+  background:rgba(0,229,160,.08); border:1px solid rgba(0,229,160,.2);
+  border-radius:12px; padding:10px 16px;
+  font-size:13px; font-weight:700; text-align:center;
+  color:rgba(255,255,255,.75); transition:all .3s; min-height:42px;
+  display:flex; align-items:center; justify-content:center;
+}
+#ejercicio-actual.listo{
+  background:rgba(0,229,160,.2); border-color:rgba(0,229,160,.6);
+  color:var(--acc); box-shadow:0 0 20px rgba(0,229,160,.2);
+  animation:latir .5s ease-in-out 2;
+}
+@keyframes latir{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
+
+/* ── Nota ── */
+.nota{
+  font-size:10px; color:var(--muted); text-align:center;
+  max-width:480px; line-height:1.7; padding:0 8px;
+}
+.nota b{ color:rgba(255,255,255,.5); }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">⚕ FisioAngulo · Cámara IA</div>
+  <div id="estado-dot"></div>
+  <span id="estado-txt">Cargando modelo...</span>
+</header>
+
+<!-- Cámara -->
+<div class="cam-container">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="canvas"></canvas>
+
+  <!-- Ángulos flotantes sobre el video -->
+  <div class="angulo-overlay" id="ov-rod-izq">🦵 Izq: --°</div>
+  <div class="angulo-overlay" id="ov-rod-der">🦵 Der: --°</div>
+  <div class="angulo-overlay" id="ov-cad-izq">↔ Izq: --°</div>
+  <div class="angulo-overlay" id="ov-cad-der">↔ Der: --°</div>
+  <div class="angulo-overlay" id="ov-coord">✦ --%</div>
+</div>
+
+<!-- Botón activar -->
+<button id="btnActivar" onclick="activarCamara()" disabled>📷 Activar Cámara</button>
+
+<!-- Ejercicio actual (recibido del juego) -->
+<div id="ejercicio-actual">⏳ Conectando con el juego...</div>
+
+<!-- Tarjetas detalladas -->
+<div class="cards-grid">
+
+  <div class="angle-card" id="card-rod-izq">
+    <div class="card-icon">🦵</div>
+    <div class="card-nombre">Rodilla Izquierda</div>
+    <div class="card-valor" id="val-rod-izq">--°</div>
+    <div class="card-bar-bg"><div class="card-bar bar-azul" id="bar-rod-izq"></div></div>
+    <div class="card-sub">Flexión · umbral &gt; 30°</div>
+    <div class="card-estado" id="est-rod-izq">Sin datos</div>
+  </div>
+
+  <div class="angle-card" id="card-rod-der">
+    <div class="card-icon">🦵</div>
+    <div class="card-nombre">Rodilla Derecha</div>
+    <div class="card-valor" id="val-rod-der">--°</div>
+    <div class="card-bar-bg"><div class="card-bar bar-azul" id="bar-rod-der"></div></div>
+    <div class="card-sub">Flexión · umbral &gt; 30°</div>
+    <div class="card-estado" id="est-rod-der">Sin datos</div>
+  </div>
+
+  <div class="angle-card" id="card-cad-izq">
+    <div class="card-icon">↔</div>
+    <div class="card-nombre">Cadera Izquierda</div>
+    <div class="card-valor" id="val-cad-izq">--°</div>
+    <div class="card-bar-bg"><div class="card-bar bar-amar" id="bar-cad-izq"></div></div>
+    <div class="card-sub">Flexión · umbral &gt; 15°</div>
+    <div class="card-estado" id="est-cad-izq">Sin datos</div>
+  </div>
+
+  <div class="angle-card" id="card-cad-der">
+    <div class="card-icon">↔</div>
+    <div class="card-nombre">Cadera Derecha</div>
+    <div class="card-valor" id="val-cad-der">--°</div>
+    <div class="card-bar-bg"><div class="card-bar bar-amar" id="bar-cad-der"></div></div>
+    <div class="card-sub">Flexión · umbral &gt; 15°</div>
+    <div class="card-estado" id="est-cad-der">Sin datos</div>
+  </div>
+
+</div>
+
+<!-- Fila extra: Coordinación + Reps -->
+<div class="extra-row">
+  <div class="extra-card" id="card-coord">
+    <span class="label">✦ Coordinación</span>
+    <span class="valor" id="val-coord">--%</span>
+  </div>
+  <div class="extra-card" id="card-reps">
+    <span class="label">🔄 Repeticiones</span>
+    <span class="valor" id="val-reps">0</span>
+  </div>
+</div>
+
+<p class="nota">
+  <b>Párate a ~2 metros de la cámara</b> con las piernas completas visibles ·
+  Los ángulos se envían automáticamente al juego en tiempo real ·
+  Modelo: <b>MoveNet Lightning</b> ·
+  <b>Inclinación lateral de cadera</b> detectada automáticamente por diferencia de altura entre caderas
+</p>
+
+<script>
+'use strict';
+var CONF_MIN = 0.40;
+var detector  = null;
+var camStream = null;
+var mlActivo  = false;
+var canal     = null;
+
+var mlState   = { rodillaIzq:null, rodillaDer:null, caderaIzq:null, caderaDer:null, coord:null };
+var repeticiones = 0;
+var repEstado    = 'reposo';
+
+// ── BroadcastChannel ──────────────────────────────────
+function iniciarCanal(){
+  if(!('BroadcastChannel' in window)) return;
+  canal = new BroadcastChannel('fisio-angulos');
+
+  // Escuchar hint del ejercicio actual desde el juego
+  canal.onmessage = function(e){
+    var d = e.data;
+    if(d.tipo === 'ejercicio'){
+      document.getElementById('ejercicio-actual').textContent = d.hint || '¡Realiza el movimiento!';
+      document.getElementById('ejercicio-actual').classList.remove('listo');
+    }
+    if(d.tipo === 'detectado'){
+      var ea = document.getElementById('ejercicio-actual');
+      ea.textContent = '✅ ¡Movimiento detectado!';
+      ea.classList.add('listo');
+      setTimeout(function(){ ea.classList.remove('listo'); }, 700);
+    }
+  };
+
+  // Avisar al juego que la cámara está lista
+  canal.postMessage({ tipo: 'camara-lista' });
+}
+
+// ── Cargar modelo ML ───────────────────────────────────
+async function cargarModelo(){
+  setEstado('⏳ Cargando modelo MoveNet...');
+  try {
+    detector = await poseDetection.createDetector(
+      poseDetection.SupportedModels.MoveNet,
+      { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+    );
+    document.getElementById('estado-dot').classList.add('on');
+    setEstado('✓ Modelo listo — activa la cámara');
+    document.getElementById('btnActivar').disabled = false;
+  } catch(e){
+    setEstado('⚠ Error al cargar modelo');
+    document.getElementById('btnActivar').disabled = false;
+    console.error('MoveNet:',e);
+  }
+}
+
+function setEstado(t){
+  document.getElementById('estado-txt').textContent = t;
+}
+
+// ── Activar cámara ─────────────────────────────────────
+async function activarCamara(){
+  if(mlActivo) return;
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video:{ width:480, height:360, facingMode:'user' }, audio:false
+    });
+    var vid = document.getElementById('video');
+    vid.srcObject = camStream;
+    await new Promise(function(r){ vid.onloadedmetadata=r; });
+    vid.play();
+
+    mlActivo = true;
+    document.getElementById('btnActivar').textContent = '✓ Cámara activa';
+    document.getElementById('btnActivar').disabled = true;
+
+    var cnv = document.getElementById('canvas');
+    cnv.width=vid.videoWidth||480; cnv.height=vid.videoHeight||360;
+
+    setEstado('● Detectando y enviando ángulos al juego');
+    if(canal) canal.postMessage({ tipo:'camara-lista' });
+    iniciarWorkerTick(); // arranca el Worker que no se pausa al minimizar
+  } catch(err){
+    alert('No se pudo acceder a la cámara.\nRevisa los permisos del navegador.');
+    console.error(err);
+  }
+}
+
+// ── Bucle de detección con Web Worker ──────────────────
+// Un Web Worker envía "tick" cada 50ms aunque la pestaña esté
+// minimizada o en segundo plano — el navegador nunca lo pausa.
+var tickWorker = null;
+var detectando = false; // evita llamadas concurrentes a estimatePoses
+
+function iniciarWorkerTick(){
+  // Código del Worker como Blob — no necesita archivo externo
+  var workerCode = [
+    'var intervalo = null;',
+    'self.onmessage = function(e){',
+    '  if(e.data === "start"){',
+    '    if(intervalo) clearInterval(intervalo);',
+    '    intervalo = setInterval(function(){ self.postMessage("tick"); }, 50);',
+    '  }',
+    '  if(e.data === "stop"){',
+    '    if(intervalo){ clearInterval(intervalo); intervalo=null; }',
+    '  }',
+    '};'
+  ].join('\n');
+  var blob = new Blob([workerCode], {type:'application/javascript'});
+  tickWorker = new Worker(URL.createObjectURL(blob));
+  tickWorker.onmessage = function(e){
+    if(e.data === 'tick') ejecutarDeteccion();
+  };
+  tickWorker.postMessage('start');
+}
+
+async function ejecutarDeteccion(){
+  if(!mlActivo||!detector||detectando) return;
+  detectando = true;
+  var vid=document.getElementById('video');
+  var cnv=document.getElementById('canvas');
+  var ctx=cnv.getContext('2d');
+  try {
+    var poses = await detector.estimatePoses(vid);
+    ctx.clearRect(0,0,cnv.width,cnv.height);
+    if(poses.length>0){
+      var kps=poses[0].keypoints;
+      dibujarEsqueleto(ctx,kps,cnv);
+      procesarAngulos(kps);
+    }
+  } catch(e){}
+  detectando = false;
+}
+
+// Mantener compatibilidad con llamadas directas
+function bucleDeteccion(){ /* reemplazado por Worker */ }
+
+// ── Dibujar esqueleto ─────────────────────────────────
+function dibujarEsqueleto(ctx,kps,cnv){
+  var W=cnv.width;
+  // Espejear coordenadas para coincidir con el video CSS espejado
+  function mx(k){return{x:W-k.x, y:k.y, score:k.score};}
+
+  var brazos=[[5,7],[7,9],[6,8],[8,10],[5,6]];
+  var tronco=[[5,11],[6,12],[11,12]];
+  var piernas=[[11,13],[13,15],[12,14],[14,16]];
+
+  function dibLinea(a,b,color){
+    if(!a||!b||a.score<CONF_MIN||b.score<CONF_MIN)return;
+    var ma=mx(a),mb=mx(b);
+    ctx.strokeStyle=color; ctx.lineWidth=2.5;
+    ctx.beginPath(); ctx.moveTo(ma.x,ma.y); ctx.lineTo(mb.x,mb.y); ctx.stroke();
+  }
+  brazos.forEach(function(p){ dibLinea(kps[p[0]],kps[p[1]],'rgba(255,183,77,.8)'); });
+  tronco.forEach(function(p){ dibLinea(kps[p[0]],kps[p[1]],'rgba(0,229,160,.8)'); });
+  piernas.forEach(function(p){ dibLinea(kps[p[0]],kps[p[1]],'rgba(79,195,247,.9)'); });
+
+  var colores={5:'#00e5a0',6:'#00e5a0',7:'#ffb74d',8:'#ffb74d',
+               11:'#ffd700',12:'#ffd700',13:'#4fc3f7',14:'#4fc3f7',15:'#69f0ae',16:'#69f0ae'};
+  [5,6,7,8,11,12,13,14,15,16].forEach(function(i){
+    var kp=kps[i]; if(!kp||kp.score<CONF_MIN)return;
+    var mk=mx(kp);
+    ctx.beginPath(); ctx.arc(mk.x,mk.y,6,0,Math.PI*2);
+    ctx.fillStyle=colores[i]||'#fff'; ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.5)';
+    ctx.font='8px Nunito,sans-serif';
+    ctx.fillText(Math.round(kp.score*100)+'%', mk.x+7, mk.y-3);
+  });
+
+  // Ángulos sobre articulaciones
+  function dibAng(idx,ang,color){
+    if(ang===null)return;
+    var kp=kps[idx]; if(!kp||kp.score<CONF_MIN)return;
+    var mk=mx(kp);
+    ctx.font='bold 11px Nunito,sans-serif';
+    ctx.fillStyle='rgba(0,0,0,.75)';
+    ctx.fillRect(mk.x+6,mk.y-15,44,16);
+    ctx.fillStyle=color; ctx.fillText(ang+'°',mk.x+8,mk.y-3);
+  }
+  dibAng(13,mlState.rodillaIzq,'#4fc3f7');
+  dibAng(14,mlState.rodillaDer,'#4fc3f7');
+  dibAng(11,mlState.caderaIzq,'#ffd700');
+  dibAng(12,mlState.caderaDer,'#ffd700');
+}
+
+// ── Cálculo de ángulos ─────────────────────────────────
+function calcularAngulo(A,B,C){
+  var AB={x:A.x-B.x,y:A.y-B.y},CB={x:C.x-B.x,y:C.y-B.y};
+  var dot=AB.x*CB.x+AB.y*CB.y;
+  var mag=Math.sqrt(AB.x*AB.x+AB.y*AB.y)*Math.sqrt(CB.x*CB.x+CB.y*CB.y);
+  if(!mag) return null;
+  return Math.round(Math.acos(Math.max(-1,Math.min(1,dot/mag)))*(180/Math.PI));
+}
+
+function procesarAngulos(kps){
+  var ok=function(i){ return kps[i]&&kps[i].score>=CONF_MIN; };
+  function angFlex(iA,iB,iC){
+    if(!ok(iA)||!ok(iB)||!ok(iC)) return null;
+    var a=calcularAngulo({x:kps[iA].x,y:kps[iA].y},{x:kps[iB].x,y:kps[iB].y},{x:kps[iC].x,y:kps[iC].y});
+    return a!==null ? 180-a : null;
+  }
+
+  var rI=angFlex(11,13,15), rD=angFlex(12,14,16);
+  var cI=angFlex(5,11,13),  cD=angFlex(6,12,14);
+  var coord=null;
+  if(rI!==null&&rD!==null) coord=Math.max(0,Math.round((1-Math.abs(rI-rD)/45)*100));
+
+  // Inclinación lateral de cadera
+  var inclCadIzq=null, inclCadDer=null;
+  var kp11=kps[11],kp12=kps[12];
+  if(kp11&&kp12&&kp11.score>=CONF_MIN&&kp12.score>=CONF_MIN){
+    var anchoCad=Math.abs(kp11.x-kp12.x);
+    if(anchoCad>10){
+      var diffY=kp12.y-kp11.y;
+      var inclinPct=Math.round((diffY/anchoCad)*100);
+      inclCadIzq=Math.max(0,inclinPct);
+      inclCadDer=Math.max(0,-inclinPct);
+    }
+  }
+
+  mlState={rodillaIzq:rI, rodillaDer:rD, caderaIzq:cI, caderaDer:cD, coord:coord,
+           inclCadIzq:inclCadIzq, inclCadDer:inclCadDer};
+
+  // Contador de repeticiones
+  if(rI!==null){
+    if(repEstado==='reposo'&&rI>35){ repEstado='activo'; }
+    else if(repEstado==='activo'&&rI<20){
+      repEstado='reposo'; repeticiones++;
+      document.getElementById('val-reps').textContent=repeticiones;
+    }
+  }
+
+  actualizarUI();
+
+  // Enviar al juego vía BroadcastChannel
+  if(canal){
+    canal.postMessage({ tipo:'angulos', estado: mlState });
+  }
+}
+
+// ── Actualizar UI de esta ventana ──────────────────────
+function actualizarUI(){
+  function setCard(cid,vid,bid,estId,ovId,ang,max,umbral,label){
+    var card=document.getElementById(cid);
+    var val =document.getElementById(vid);
+    var bar =document.getElementById(bid);
+    var est =document.getElementById(estId);
+    var ov  =document.getElementById(ovId);
+    if(!card) return;
+
+    var activo = ang!==null&&ang>umbral;
+    var warn   = ang!==null&&ang>0&&ang<=umbral;
+
+    card.classList.toggle('activo',activo);
+    card.classList.toggle('warning',warn);
+
+    if(ang!==null){
+      val.textContent = ang+'°';
+      bar.style.width = Math.min(100,Math.round(ang/max*100))+'%';
+      bar.style.background = activo
+        ? 'linear-gradient(90deg,#007a4a,#00e5a0)'
+        : warn
+        ? 'linear-gradient(90deg,#c47d00,#ffb300)'
+        : '';
+      est.textContent = activo ? '✓ Umbral alcanzado' : warn ? '↕ Rango reducido' : '● Detectado';
+      if(ov){
+        ov.textContent = label+': '+ang+'°';
+        ov.classList.toggle('activo',activo);
+      }
+    } else {
+      val.textContent='--°'; bar.style.width='0%'; est.textContent='Sin datos';
+      if(ov){ ov.textContent=label+': --°'; ov.classList.remove('activo'); }
+    }
+  }
+
+  setCard('card-rod-izq','val-rod-izq','bar-rod-izq','est-rod-izq','ov-rod-izq', mlState.rodillaIzq,90,30,'🦵 Izq');
+  setCard('card-rod-der','val-rod-der','bar-rod-der','est-rod-der','ov-rod-der', mlState.rodillaDer,90,30,'🦵 Der');
+  setCard('card-cad-izq','val-cad-izq','bar-cad-izq','est-cad-izq','ov-cad-izq', mlState.caderaIzq,60,15,'↔ Izq');
+  setCard('card-cad-der','val-cad-der','bar-cad-der','est-cad-der','ov-cad-der', mlState.caderaDer,60,15,'↔ Der');
+
+  // Coordinación
+  var coordCard=document.getElementById('card-coord');
+  var coordVal =document.getElementById('val-coord');
+  if(mlState.coord!==null){
+    coordVal.textContent=mlState.coord+'%';
+    coordCard.classList.toggle('activo',mlState.coord>70);
+    document.getElementById('ov-coord').textContent='✦ '+mlState.coord+'%';
+    document.getElementById('ov-coord').classList.toggle('activo',mlState.coord>70);
+  }
+}
+
+// ── Inicio ─────────────────────────────────────────────
+window.onload = function(){
+  iniciarCanal();
+  cargarModelo();
+};
+
+// El Web Worker mantiene el tick aunque la pestaña esté oculta/minimizada
+// No necesitamos visibilitychange
+
+window.activarCamara = activarCamara;
+</script>
+</body>
+</html>

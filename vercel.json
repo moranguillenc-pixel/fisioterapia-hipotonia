@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/cazador_estrellas_final.html"
+    }
+  ]
+}

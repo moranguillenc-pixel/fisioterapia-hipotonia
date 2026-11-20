@@ -1,0 +1,14 @@
+FisioAngulo IA · El Cazador de Estrellas
+Tecsup 2026 — Hipotonía Muscular
+
+ABRIR EL JUEGO
+--------------
+1. Abre VS Code → Archivo → Abrir carpeta → selecciona esta carpeta
+2. Clic derecho en cazador_estrellas_final.html → Open with Live Server
+   O en la terminal: cd [esta carpeta] → npx serve . → abrir localhost:3000/cazador_estrellas_final.html
+
+CÁMARA DEL CELULAR (Android)
+-----------------------------
+Instala DroidCam en el celular (Google Play, gratis)
+Conecta por USB o WiFi → abre DroidCam → Start
+En el juego → Activar Cámara IA → elige DroidCam
